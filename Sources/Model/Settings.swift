@@ -117,6 +117,7 @@ import Photos
             ///                PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumVideos, options: options),
             public lazy var fetchResults: [PHFetchResult<PHAssetCollection>] = [
                 PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumUserLibrary, options: options),
+                PHAssetCollection.fetchAssetCollections(with: .album, subtype: .any, options: options)
             ]
         }
 

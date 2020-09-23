@@ -27,6 +27,7 @@ protocol AssetsViewControllerDelegate: class {
     func assetsViewController(_ assetsViewController: AssetsViewController, didSelectAsset asset: PHAsset)
     func assetsViewController(_ assetsViewController: AssetsViewController, didDeselectAsset asset: PHAsset)
     func assetsViewController(_ assetsViewController: AssetsViewController, didLongPressCell cell: AssetCollectionViewCell, displayingAsset asset: PHAsset)
+    func assetsViewController(_ assetsViewController: AssetsViewController, didReachSelectionLimit count: Int)
 }
 
 class AssetsViewController: UIViewController {
@@ -192,7 +193,11 @@ extension AssetsViewController: UICollectionViewDelegate {
     }
 
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
-        guard store.count < settings.selection.max || settings.selection.unselectOnReachingMax else { return false }
+        guard store.count < settings.selection.max || settings.selection.unselectOnReachingMax else {
+            delegate?.assetsViewController(self, didReachSelectionLimit: settings.selection.max)
+            return false
+        }
+        
         selectionFeedback.prepare()
 
         return true

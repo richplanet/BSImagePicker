@@ -72,6 +72,12 @@ class AlbumsViewController: UIViewController {
         preferredContentSize = CGSize(width: 320, height: 300)
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        tableView.reloadData()
+    }
+    
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
@@ -89,6 +95,8 @@ extension AlbumsViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let album = albums[indexPath.row]
         delegate?.albumsViewController(self, didSelectAlbum: album)
+        dataSource?.selectIndex = indexPath.row
+        tableView.deselectRow(at: indexPath, animated: false)
     }
 
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {

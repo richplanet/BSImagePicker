@@ -31,7 +31,7 @@ class ViewController: UIViewController {
         imagePicker.settings.selection.max = 5
         imagePicker.settings.theme.selectionStyle = .numbered
         imagePicker.settings.fetch.assets.supportedMediaTypes = [.image, .video]
-        imagePicker.settings.selection.unselectOnReachingMax = true
+        imagePicker.settings.selection.unselectOnReachingMax = false
 
         let start = Date()
         self.presentImagePicker(imagePicker, select: { (asset) in
@@ -42,6 +42,8 @@ class ViewController: UIViewController {
             print("Canceled with selections: \(assets)")
         }, finish: { (assets) in
             print("Finished with selections: \(assets)")
+        }, reachSelectionLimit: { (count) in
+            print("Reach Selection Limit: \(count)")
         }, completion: {
             let finish = Date()
             print(finish.timeIntervalSince(start))

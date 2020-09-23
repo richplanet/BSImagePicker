@@ -48,4 +48,8 @@ extension ImagePickerController: AssetsViewControllerDelegate {
         
         pushViewController(previewViewController, animated: true)
     }
+    
+    func assetsViewController(_ assetsViewController: AssetsViewController, didReachSelectionLimit count: Int) {
+        imagePickerDelegate?.imagePicker(self, didReachSelectionLimit: count)
+    }
 }
