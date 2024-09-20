@@ -28,6 +28,7 @@ Implements the UITableViewDataSource protocol with a data source and cell factor
 */
 final class AlbumsTableViewDataSource : NSObject, UITableViewDataSource {
     var settings: Settings!
+    var selectIndex: Int = 0
     
     private let albums: [PHAssetCollection]
     private let scale: CGFloat
@@ -67,6 +68,8 @@ final class AlbumsTableViewDataSource : NSObject, UITableViewDataSource {
                 cell.albumImageView.image = image
             }
         }
+        
+        cell.isSelected = indexPath.row == selectIndex
         
         return cell
     }

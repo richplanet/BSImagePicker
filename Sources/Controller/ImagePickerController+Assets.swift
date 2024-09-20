@@ -34,7 +34,7 @@ extension ImagePickerController: AssetsViewControllerDelegate {
         updatedDoneButton()
         imagePickerDelegate?.imagePicker(self, didSelectAsset: asset)
 
-        if assetStore.count >= settings.selection.max {
+        if assetStore.count > settings.selection.max {
             imagePickerDelegate?.imagePicker(self, didReachSelectionLimit: assetStore.count)
         }
     }
@@ -51,5 +51,9 @@ extension ImagePickerController: AssetsViewControllerDelegate {
         zoomTransitionDelegate.zoomedInView = previewViewController.imageView
         
         pushViewController(previewViewController, animated: true)
+    }
+    
+    func assetsViewController(_ assetsViewController: AssetsViewController, didReachSelectionLimit count: Int) {
+        imagePickerDelegate?.imagePicker(self, didReachSelectionLimit: count)
     }
 }
