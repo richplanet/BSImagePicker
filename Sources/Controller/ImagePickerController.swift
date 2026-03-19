@@ -33,13 +33,11 @@ import Photos
     public var cancelButton: UIBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: nil, action: nil)
     public var albumButton: UIButton = UIButton(type: .custom)
     public var selectedAssets: [PHAsset] {
-        get {
-            return assetStore.assets
-        }
+        return assetStore.assets
     }
 
-    /// Title to use for button
-    public var doneButtonTitle = Bundle(for: UIBarButtonItem.self).localizedString(forKey: "Done", value: "Done", table: "")
+    public var doneButtonTitle = Bundle(for: UIBarButtonItem.self)
+        .localizedString(forKey: "Done", value: "Done", table: "")
 
     // MARK: Internal properties
     var assetStore: AssetStore
@@ -48,32 +46,15 @@ import Photos
     var onCancel: ((_ assets: [PHAsset]) -> Void)?
     var onFinish: ((_ assets: [PHAsset]) -> Void)?
     var onReachSelectionLimit: ((_ count: Int) -> Void)?
-    
+
     let assetsViewController: AssetsViewController
     let albumsViewController = AlbumsViewController()
     let dropdownTransitionDelegate = DropdownTransitionDelegate()
     let zoomTransitionDelegate = ZoomTransitionDelegate()
 
-    lazy var albums: [PHAssetCollection] = {
-        // We don't want collections without assets.
-        // I would like to do that with PHFetchOptions: fetchOptions.predicate = NSPredicate(format: "estimatedAssetCount > 0")
-        // But that doesn't work...
-        // This seems suuuuuper ineffective...
-        let fetchOptions = settings.fetch.assets.options.copy() as! PHFetchOptions
-        fetchOptions.fetchLimit = 1
+    var albums: [PHAssetCollection] = []
 
-        return settings.fetch.album.fetchResults.filter {
-            $0.count > 0
-        }.flatMap {
-            $0.objects(at: IndexSet(integersIn: 0..<$0.count))
-        }.filter {
-            // We can't use estimatedAssetCount on the collection
-            // It returns NSNotFound. So actually fetch the assets...
-            let assetsFetchResult = PHAsset.fetchAssets(in: $0, options: fetchOptions)
-            return assetsFetchResult.count > 0
-        }
-    }()
-
+    // MARK: Init
     public init(selectedAssets: [PHAsset] = []) {
         assetStore = AssetStore(assets: selectedAssets)
         assetsViewController = AssetsViewController(store: assetStore)
@@ -84,30 +65,34 @@ import Photos
         fatalError("init(coder:) has not been implemented")
     }
 
+    // MARK: Lifecycle
     public override func viewDidLoad() {
         super.viewDidLoad()
-        
-        // Sync settings
+
         albumsViewController.settings = settings
         assetsViewController.settings = settings
-        
-        // Setup view controllers
+
         albumsViewController.delegate = self
         assetsViewController.delegate = self
-        
+
         viewControllers = [assetsViewController]
         view.backgroundColor = settings.theme.backgroundColor
 
-        // Setup delegates
         delegate = zoomTransitionDelegate
         presentationController?.delegate = self
 
-        // Turn off translucency so drop down can match its color
         navigationBar.isTranslucent = false
         navigationBar.isOpaque = true
-        
-        // Setup buttons
+
+        setupUI()
+
+        loadAlbums()
+    }
+
+    // MARK: UI Setup
+    private func setupUI() {
         let firstViewController = viewControllers.first
+
         albumButton.setTitleColor(albumButton.tintColor, for: .normal)
         albumButton.titleLabel?.font = .systemFont(ofSize: 16)
         albumButton.titleLabel?.adjustsFontSizeToFitWidth = true
@@ -118,8 +103,9 @@ import Photos
         let image = arrowView.asImage
 
         albumButton.setImage(image, for: .normal)
-        albumButton.semanticContentAttribute = .forceRightToLeft // To set image to the right without having to calculate insets/constraints.
-        albumButton.addTarget(self, action: #selector(ImagePickerController.albumsButtonPressed(_:)), for: .touchUpInside)
+        albumButton.semanticContentAttribute = .forceRightToLeft
+        albumButton.addTarget(self, action: #selector(albumsButtonPressed(_:)), for: .touchUpInside)
+
         firstViewController?.navigationItem.titleView = albumButton
 
         doneButton.target = self
@@ -129,29 +115,62 @@ import Photos
         cancelButton.target = self
         cancelButton.action = #selector(cancelButtonPressed(_:))
         firstViewController?.navigationItem.leftBarButtonItem = cancelButton
-        
+
         updatedDoneButton()
         updateAlbumButton()
 
-        // We need to have some color to be able to match with the drop down
         if navigationBar.barTintColor == nil {
             navigationBar.barTintColor = .systemBackgroundColor
         }
+    }
 
-        if let firstAlbum = albums.first {
-            select(album: firstAlbum)
+    // MARK: Albums 비동기 로딩
+    private func loadAlbums() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let fetchOptions = self.settings.fetch.assets.options.copy() as! PHFetchOptions
+            fetchOptions.fetchLimit = 1
+
+            let fetchResults = self.settings.fetch.album.fetchResults
+            var result: [PHAssetCollection] = []
+
+            for fetchResult in fetchResults {
+                for i in 0..<fetchResult.count {
+                    let collection = fetchResult.object(at: i)
+
+                    // 빠른 필터
+                    if collection.estimatedAssetCount == 0 {
+                        continue
+                    }
+
+                    // 🔥 IPC (백그라운드에서 실행)
+                    let assets = PHAsset.fetchAssets(in: collection, options: fetchOptions)
+
+                    if assets.count > 0 {
+                        result.append(collection)
+                    }
+                }
+            }
+
+            DispatchQueue.main.async {
+                self.albums = result
+                self.updateAlbumButton()
+
+                if let firstAlbum = result.first {
+                    self.select(album: firstAlbum)
+                }
+            }
         }
     }
 
+    // MARK: Actions
     public func deselect(asset: PHAsset) {
         assetStore.remove(asset)
         assetsViewController.unselect(asset: asset)
         updatedDoneButton()
     }
-    
+
     func updatedDoneButton() {
         doneButton.title = assetStore.count > 0 ? doneButtonTitle + " (\(assetStore.count))" : doneButtonTitle
-      
         doneButton.isEnabled = assetStore.count >= settings.selection.min
     }
 
