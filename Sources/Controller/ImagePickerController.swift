@@ -126,37 +126,85 @@ import Photos
 
     // MARK: Albums 비동기 로딩
     private func loadAlbums() {
+        // 1️⃣ 카메라롤 먼저 (즉시 표시)
+        let cameraRollFetch = PHAssetCollection.fetchAssetCollections(
+            with: .smartAlbum,
+            subtype: .smartAlbumUserLibrary,
+            options: nil
+        )
+
+        var initialAlbums: [PHAssetCollection] = []
+
+        for i in 0..<cameraRollFetch.count {
+            initialAlbums.append(cameraRollFetch.object(at: i))
+        }
+
+        // 👉 먼저 UI 반영 (빈 화면 방지)
+        self.albums = initialAlbums
+        self.updateAlbumButton()
+
+        if let first = initialAlbums.first {
+            self.select(album: first)
+        }
+
+        // 2️⃣ 나머지는 백그라운드 처리
         DispatchQueue.global(qos: .userInitiated).async {
+
             let fetchOptions = self.settings.fetch.assets.options.copy() as! PHFetchOptions
             fetchOptions.fetchLimit = 1
 
             let fetchResults = self.settings.fetch.album.fetchResults
-            var result: [PHAssetCollection] = []
+
+            var batch: [PHAssetCollection] = []
+            var count = 0
 
             for fetchResult in fetchResults {
                 for i in 0..<fetchResult.count {
                     let collection = fetchResult.object(at: i)
 
-                    // 빠른 필터
+                    // ❗ 카메라롤 중복 방지
+                    if collection.assetCollectionSubtype == .smartAlbumUserLibrary {
+                        continue
+                    }
+
+                    // 1차 필터 (빠른 필터)
                     if collection.estimatedAssetCount == 0 {
                         continue
                     }
 
-                    // 🔥 IPC (백그라운드에서 실행)
-                    let assets = PHAsset.fetchAssets(in: collection, options: fetchOptions)
+                    // 🔥 일부만 fetchAssets (전체 다 안함)
+                    var hasAsset = true
 
-                    if assets.count > 0 {
-                        result.append(collection)
+                    // 👉 너무 많을 때만 검증 (선택적)
+                    if collection.estimatedAssetCount == NSNotFound {
+                        let assets = PHAsset.fetchAssets(in: collection, options: fetchOptions)
+                        hasAsset = assets.count > 0
+                    }
+
+                    if hasAsset {
+                        batch.append(collection)
+                        count += 1
+                    }
+
+                    // 🔥 10개씩 UI 업데이트
+                    if count % 10 == 0 && !batch.isEmpty {
+
+                        let appendBatch = batch
+                        batch.removeAll()
+
+                        DispatchQueue.main.async {
+                            self.albums.append(contentsOf: appendBatch)
+                            self.updateAlbumButton()
+                        }
                     }
                 }
             }
 
-            DispatchQueue.main.async {
-                self.albums = result
-                self.updateAlbumButton()
-
-                if let firstAlbum = result.first {
-                    self.select(album: firstAlbum)
+            // 남은 것 처리
+            if !batch.isEmpty {
+                DispatchQueue.main.async {
+                    self.albums.append(contentsOf: batch)
+                    self.updateAlbumButton()
                 }
             }
         }
