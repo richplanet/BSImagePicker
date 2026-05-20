@@ -69,7 +69,7 @@ class AssetsViewController: UIViewController {
         view = collectionView
 
         // Set an empty title to get < back button
-        title = " "
+        title = ""
 
         collectionView.allowsMultipleSelection = true
         collectionView.bounces = true
